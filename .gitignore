@@ -1,0 +1,15 @@
+# Never commit plaintext secrets or local artifacts
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+marker.txt
+probe.yml
+test_offline.py
+
+# The encrypted database is committed on purpose (it is Fernet-encrypted),
+# but a plaintext dump must never leak.
+data.db
+*.sql
+dump.sql

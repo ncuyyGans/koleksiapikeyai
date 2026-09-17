@@ -1,0 +1,45 @@
+name: run-bot
+
+on:
+  workflow_dispatch:        # manual + self-redispatch
+  schedule:
+    # Safety net: if self-redispatch ever fails, cron restarts it 4x/day.
+    - cron: "0 0,6,12,18 * * *"
+
+# Public repos get unlimited Actions minutes -> free 24/7.
+permissions:
+  contents: write           # auto-commit the encrypted DB
+  actions: write            # self-redispatch
+
+concurrency:
+  group: run-bot-singleton
+  cancel-in-progress: false # never cancel a running bot instance
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350    # hard cap under the 6h job limit
+    env:
+      BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+      ALLOWED_USER_IDS: ${{ secrets.ALLOWED_USER_IDS }}
+      REVEAL_PIN: ${{ secrets.REVEAL_PIN }}
+      DB_ENCRYPTION_KEY: ${{ secrets.DB_ENCRYPTION_KEY }}
+      BOT_MAX_RUNTIME_SEC: "18000"
+      GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+      REDISPATCH: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_TOKEN || github.token }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Configure gh CLI
+        run: echo "${GH_TOKEN}" | gh auth login --with-token
+
+      - name: Run the bot (supervised, auto-rotating)
+        run: bash run.sh
