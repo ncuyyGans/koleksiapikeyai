@@ -302,13 +302,13 @@ def cmd_start(chat_id: int) -> None:
         "Brankas pribadi untuk custom model AI (format Cline):\n"
         "API Provider • Base URL • API Key • Model ID\n\n"
         "<b>Perintah:</b>\n"
-        "<code>/add <nama></code> — tambah model (isi interaktif)\n"
+        "<code>/add &lt;nama&gt;</code> — tambah model (isi interaktif)\n"
         "<code>/list</code> — daftar model (key disembunyikan)\n"
-        "<code>/view <nama></code> — detail + tombol salin\n"
-        "<code>/search <kata></code> — cari model\n"
-        "<code>/edit <nama> <field> <nilai></code>\n"
-        "<code>/delete <nama></code> — hapus\n"
-        "<code>/pin <nama></code> — sematkan favorit\n"
+        "<code>/view &lt;nama&gt;</code> — detail + tombol salin\n"
+        "<code>/search &lt;kata&gt;</code> — cari model\n"
+        "<code>/edit &lt;nama&gt; &lt;field&gt; &lt;nilai&gt;</code>\n"
+        "<code>/delete &lt;nama&gt;</code> — hapus\n"
+        "<code>/pin &lt;nama&gt;</code> — sematkan favorit\n"
         "<code>/export</code> — export JSON\n"
         "<code>/import</code> — import JSON (balas file JSON)\n"
         "<code>/audit</code> — log aktivitas\n"
@@ -324,7 +324,7 @@ def cmd_help(chat_id: int) -> None:
         "<b>1. Tambah model</b>\n"
         "<code>/add deepseek-v3</code> lalu ikuti pertanyaan (provider, base url, key, model id, catatan, tags). "
         "Gunakan <code>/skip</code> untuk lewati, <code>/cancel</code> untuk batal.\n\n"
-        "<b>2. Lihat & salin</b>\n"
+        "<b>2. Lihat &amp; salin</b>\n"
         "<code>/list</code> → ketuk nama model → tombol <b>Salin API Key</b> (butuh PIN).\n"
         "Sama cepatnya: <code>/view deepseek-v3</code>.\n\n"
         "<b>3. Edit satu field</b>\n"
@@ -345,7 +345,7 @@ def cmd_add(chat_id: int, args: str) -> None:
     if not name:
         send_message(
             chat_id,
-            "Format: <code>/add <nama-model></code>\nContoh: <code>/add deepseek-v3</code>",
+            "Format: <code>/add &lt;nama-model&gt;</code>\nContoh: <code>/add deepseek-v3</code>",
         )
         return
     if len(name) > 60:
@@ -357,7 +357,7 @@ def cmd_add(chat_id: int, args: str) -> None:
 def cmd_list(chat_id: int) -> None:
     models = db.list_models()
     if not models:
-        send_message(chat_id, "📭 Belum ada model. Ketik <code>/add <nama></code> untuk menambah.")
+        send_message(chat_id, "📭 Belum ada model. Ketik <code>/add &lt;nama&gt;</code> untuk menambah.")
         return
     lines = [f"🗂 <b>{len(models)} model tersimpan</b> (klik nama untuk detail)\n"]
     for i, m in enumerate(models, 1):
@@ -370,7 +370,7 @@ def cmd_list(chat_id: int) -> None:
 def cmd_view(chat_id: int, args: str) -> None:
     name = args.strip()
     if not name:
-        send_message(chat_id, "Format: <code>/view <nama-model></code>")
+        send_message(chat_id, "Format: <code>/view &lt;nama-model&gt;</code>")
         return
     m = db.get_model(name)
     if not m:
@@ -399,7 +399,7 @@ def send_view(chat_id: int, m: dict) -> None:
 def cmd_search(chat_id: int, args: str) -> None:
     q = args.strip()
     if not q:
-        send_message(chat_id, "Format: <code>/search <kata-kunci></code>")
+        send_message(chat_id, "Format: <code>/search &lt;kata-kunci&gt;</code>")
         return
     models = db.search_models(q)
     if not models:
@@ -420,7 +420,7 @@ def cmd_edit(chat_id: int, args: str) -> None:
     if len(parts) < 3:
         send_message(
             chat_id,
-            "Format: <code>/edit <nama> <field> <nilai></code>\n"
+            "Format: <code>/edit &lt;nama&gt; &lt;field&gt; &lt;nilai&gt;</code>\n"
             "Field: provider, base_url, api_key, model_id, notes, tags, name\n"
             "Contoh: <code>/edit deepseek api_key sk-baru</code>",
         )
@@ -441,7 +441,7 @@ def cmd_edit(chat_id: int, args: str) -> None:
 def cmd_delete(chat_id: int, args: str) -> None:
     name = args.strip()
     if not name:
-        send_message(chat_id, "Format: <code>/delete <nama-model></code>")
+        send_message(chat_id, "Format: <code>/delete &lt;nama-model&gt;</code>")
         return
     m = db.get_model(name)
     if not m:
@@ -464,7 +464,7 @@ def cmd_delete(chat_id: int, args: str) -> None:
 def cmd_pin(chat_id: int, args: str) -> None:
     name = args.strip()
     if not name:
-        send_message(chat_id, "Format: <code>/pin <nama-model></code>")
+        send_message(chat_id, "Format: <code>/pin &lt;nama-model&gt;</code>")
         return
     result = db.toggle_pin(name)
     if result is None:
