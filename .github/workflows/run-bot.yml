@@ -38,8 +38,5 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Configure gh CLI
-        run: echo "${GH_TOKEN}" | gh auth login --with-token
-
       - name: Run the bot (supervised, auto-rotating)
         run: bash run.sh
