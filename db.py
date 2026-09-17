@@ -18,7 +18,7 @@ from cryptography.fernet import Fernet, InvalidToken
 DB_PATH = Path(os.environ.get("DB_PATH", "data.db.enc"))
 KEY_ENV = "DB_ENCRYPTION_KEY"
 
-_lock = threading.Lock()
+_lock = threading.RLock()  # reentrant: public API locks, then _load() -> init_db() re-locks
 
 
 def _load_key() -> bytes:
@@ -62,33 +62,39 @@ def _connect() -> sqlite3.Connection:
     return conn
 
 
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS models (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    name          TEXT NOT NULL UNIQUE,
+    provider      TEXT NOT NULL DEFAULT '',
+    base_url      TEXT NOT NULL DEFAULT '',
+    api_key       TEXT NOT NULL DEFAULT '',
+    model_id      TEXT NOT NULL DEFAULT '',
+    notes         TEXT NOT NULL DEFAULT '',
+    tags          TEXT NOT NULL DEFAULT '',
+    pinned        INTEGER NOT NULL DEFAULT 0,
+    created_at    TEXT NOT NULL,
+    updated_at    TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS audit (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts            TEXT NOT NULL,
+    user_id       INTEGER NOT NULL,
+    action        TEXT NOT NULL,
+    detail        TEXT NOT NULL DEFAULT ''
+);
+"""
+
+
 def init_db() -> None:
-    """Create the schema in memory; nothing persistent to create here."""
-    with _lock, _connect() as conn:
-        conn.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS models (
-                id            INTEGER PRIMARY KEY AUTOINCREMENT,
-                name          TEXT NOT NULL UNIQUE,
-                provider      TEXT NOT NULL DEFAULT '',
-                base_url      TEXT NOT NULL DEFAULT '',
-                api_key       TEXT NOT NULL DEFAULT '',
-                model_id      TEXT NOT NULL DEFAULT '',
-                notes         TEXT NOT NULL DEFAULT '',
-                tags          TEXT NOT NULL DEFAULT '',
-                pinned        INTEGER NOT NULL DEFAULT 0,
-                created_at    TEXT NOT NULL,
-                updated_at    TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS audit (
-                id            INTEGER PRIMARY KEY AUTOINCREMENT,
-                ts            TEXT NOT NULL,
-                user_id       INTEGER NOT NULL,
-                action        TEXT NOT NULL,
-                detail        TEXT NOT NULL DEFAULT ''
-            );
-            """
-        )
+    """Ensure the store directory exists and the encryption key is readable.
+
+    The schema itself is created lazily by :func:`_load` on the connection
+    that is actually used (a brand-new store has no dump to restore).
+    """
+    if DB_PATH.parent and not DB_PATH.parent.exists():
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _load_key()  # fail fast on a missing/misconfigured key
 
 
 def _load() -> sqlite3.Connection:
@@ -96,12 +102,16 @@ def _load() -> sqlite3.Connection:
     conn = _connect()
     plain = _decrypt()
     if plain:
+        # Restore the previously persisted database dump.
         conn.executescript(plain.decode("utf-8"))
+    else:
+        # Brand-new store: no dump yet, so create the schema in place.
+        conn.executescript(_SCHEMA)
     return conn
 
 
 def _save(conn: sqlite3.Connection) -> None:
-    dump = b"".join(conn.iterdump())
+    dump = "".join(conn.iterdump()).encode("utf-8")
     _write_plain(_encrypt(dump))
 
 
@@ -129,7 +139,7 @@ def add_model(
     with _lock, _load() as conn:
         conn.execute(
             """INSERT INTO models (name, provider, base_url, api_key, model_id, notes, tags, created_at, updated_at)
-               VALUES (?,?,?,?,?,?,?,?)""",
+               VALUES (?,?,?,?,?,?,?,?,?)""",
             (name, provider.strip(), base_url.strip(), api_key.strip(), model_id.strip(),
              notes.strip(), tags.strip(), now, now),
         )
@@ -170,7 +180,7 @@ def upsert_model(
         else:
             conn.execute(
                 """INSERT INTO models (name, provider, base_url, api_key, model_id, notes, tags, created_at, updated_at)
-                   VALUES (?,?,?,?,?,?,?,?)""",
+                   VALUES (?,?,?,?,?,?,?,?,?)""",
                 (name, provider.strip(), base_url.strip(), api_key.strip(), model_id.strip(),
                  notes.strip(), tags.strip(), now, now),
             )
